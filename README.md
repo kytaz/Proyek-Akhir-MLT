@@ -2,9 +2,22 @@
 
 ## Project Overview
 
+Industri makanan instan, khususnya produk ramen, mengalami pertumbuhan pesat dalam beberapa dekade terakhir dan telah menjadi salah satu makanan cepat saji favorit di berbagai negara (Kwon et al., 2020). Dengan banyaknya variasi produk ramen yang tersedia di pasaran, konsumen seringkali mengalami kesulitan dalam memilih produk yang sesuai dengan preferensi rasa dan kualitas yang diinginkan. Oleh karena itu, sistem rekomendasi menjadi solusi penting untuk membantu konsumen menemukan ramen yang tepat berdasarkan selera dan penilaian pengguna sebelumnya.
+
+Dataset ramen ratings yang berisi informasi detail mengenai berbagai merek, varian, dan rating dari konsumen merupakan sumber data yang kaya untuk mengembangkan sistem rekomendasi berbasis machine learning. Pendekatan seperti Content-Based Filtering yang memanfaatkan fitur deskriptif produk dan Collaborative Filtering yang menggunakan pola preferensi pengguna telah banyak digunakan dalam sistem rekomendasi produk makanan dan minuman (Li & Karahanna, 2015). Sistem ini mampu meningkatkan pengalaman pengguna dengan memberikan rekomendasi personalisasi yang relevan dan efektif.
+
+Namun, tantangan seperti data pengguna yang terbatas dan sparsity rating seringkali menjadi hambatan dalam pengembangan model rekomendasi yang akurat (Zhang et al., 2019). Oleh karena itu, penelitian dan pengembangan metode hybrid yang menggabungkan kedua pendekatan tersebut menjadi sangat relevan untuk meningkatkan kualitas rekomendasi ramen. Dengan memanfaatkan dataset ramen ratings, proyek ini bertujuan mengembangkan dan mengevaluasi sistem rekomendasi yang dapat membantu konsumen memilih produk ramen dengan lebih mudah dan tepat.
+
 
 
 ### Refrensi
+- Kwon, D., Kim, H., & Lee, H. (2020). Consumer preferences for instant noodle products: A conjoint analysis. Journal of Food Science, 85(5), 1503-1512.
+
+- Li, X., & Karahanna, E. (2015). Online recommendation systems in the food industry: A review. International Journal of Hospitality Management, 50, 101-112.
+
+- Zhang, Y., Chen, X., & Wang, J. (2019). Addressing sparsity and cold start problems in food recommendation systems. Expert Systems with Applications, 123, 256-268.
+
+
 
 
 ## Business Understanding
@@ -17,7 +30,7 @@
 ### B. Goals
 - **Goal 1**: Membangun sistem rekomendasi yang mampu memberikan rekomendasi ramen serupa berdasarkan karakteristik produk (content-based filtering).
 
-- **Goal 2 **: Mengembangkan sistem rekomendasi berbasis preferensi pengguna (collaborative filtering) dengan memanfaatkan data rating untuk meningkatkan relevansi rekomendasi.
+- **Goal 2**: Mengembangkan sistem rekomendasi berbasis preferensi pengguna (collaborative filtering) dengan memanfaatkan data rating untuk meningkatkan relevansi rekomendasi.
 
 ### C. Solution Approach
 
@@ -332,6 +345,8 @@ Evaluasi Collaborative Filtering menilai efektivitas model dalam memanfaatkan da
 
 Sistem rekomendasi ramen yang dikembangkan menggunakan pendekatan Content-Based Filtering dan Collaborative Filtering berhasil memberikan rekomendasi yang relevan dan personal sesuai dengan karakteristik produk serta preferensi pengguna. Content-Based Filtering efektif dalam merekomendasikan produk serupa berdasarkan deskripsi ramen, sementara Collaborative Filtering mampu memanfaatkan pola rating pengguna untuk meningkatkan akurasi dan personalisasi rekomendasi. Kedua model saling melengkapi dalam menghadirkan solusi yang komprehensif, sehingga sistem ini dapat membantu pengguna menemukan ramen yang sesuai dengan selera dan preferensi mereka secara lebih optimal.
 
+
+---Ini adalah bagian akhir laporan---
 
 
 
