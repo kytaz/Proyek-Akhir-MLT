@@ -83,47 +83,37 @@ Pada tahap EDA, dilakukan analisis awal untuk memahami distribusi dan karakteris
 
 Pada tahap Data Preparation, dilakukan serangkaian proses untuk membersihkan dan menyiapkan data agar siap digunakan dalam pemodelan sistem rekomendasi. Proses-proses utama meliputi:
 
+### Penghapusan kolom TopTen:
+> Kolom ini dihapus karena memiliki banyak nilai yang hilang, yaitu sebanyak 2.539 data, sehingga dihapus untuk menyesuaikan proses data preparation
+
+### Penanganan kolom start dan style
+> Tahap ini untuk membersihkan dan mempersiapkan data 'Stars' dan 'Style' dengan format yang sesuai (numerik untuk 'Stars', mengisi missing values untuk 'Style') agar siap digunakan dalam analisis dan pembangunan model rekomendasi
+
 ### Konversi Tipe Data:
 > Kolom Stars awalnya bertipe objek diubah menjadi tipe numerik (float) agar dapat digunakan dalam perhitungan dan model prediktif.
 
 ### Penanganan Missing Values:
-> Nilai kosong pada kolom Style diisi dengan label 'Unknown' untuk menjaga konsistensi data tanpa menghapus baris yang valid. Kolom Top Ten dihapus karena mengandung banyak nilai kosong dan tidak relevan untuk analisis lebih lanjut. Selain itu, nilai kosong pada kolom Country diisi dengan label 'Unknown'.
+> Nilai kosong pada kolom Style diisi dengan label 'Unknown' untuk menjaga konsistensi data tanpa menghapus baris yang valid. Selain itu, nilai kosong pada kolom Country diisi dengan label 'Unknown'.
 
 ### Pengelompokan Kelas Minoritas:
 > Untuk mendukung pembagian data menggunakan stratified sampling, negara-negara dengan jumlah data sangat sedikit digabungkan ke dalam kategori 'Others' untuk menghindari masalah saat pembagian data.
 
-### Pembagian Data:
-> Dataset dibagi menjadi data training dan testing dengan proporsi 80:20 menggunakan stratified split berdasarkan kolom modifikasi Country agar distribusi kelas tetap seimbang.
+### Pembuatan dan fitting TF-IDF 
+> Pada kolom ‘Variety’ diubah menjadi representasi numerik menggunakan TF-IDF (Term Frequency-Inverse Document Frequency) dengan menghilangkan stop words bahasa Inggris.
 
 
 ## Modeling
 
 Tahap modeling terdiri dari pengembangan dua pendekatan sistem rekomendasi utama untuk menyelesaikan permasalahan ini.
 
-### 1. Content-Based Filtering
+### 1. Model Development Content-Based Filtering
 
 Model ini menggunakan fitur teks dari kolom Variety yang diolah dengan TF-IDF untuk merepresentasikan karakteristik tiap jenis ramen dalam bentuk vektor numerik. Kemudian, cosine similarity dihitung untuk mengukur kemiripan antar ramen berdasarkan deskripsi tersebut. Fungsi rekomendasi dibuat untuk mengembalikan 10 ramen paling mirip dengan input ramen berdasarkan kemiripan konten, sehingga pengguna dapat menemukan produk serupa yang relevan.
 
-#### TF-IDF Vectorizer
 
-TF-IDF (Term Frequency-Inverse Document Frequency) digunakan untuk mengubah deskripsi ramen (Variety) menjadi representasi numerik berbobot berdasarkan frekuensi kata penting.
+#### 1. Menghitung Cosine Similarity
 
-```
-from sklearn.feature_extraction.text import TfidfVectorizer
-
-# Membuat objek TF-IDF Vectorizer dengan stop words bahasa Inggris
-tfidf = TfidfVectorizer(stop_words='english')
-
-# Terapkan TF-IDF pada kolom 'Variety'
-tfidf_matrix = tfidf.fit_transform(df['Variety'])
-
-# Cek ukuran matriks TF-IDF (baris = jumlah ramen, kolom = fitur kata unik)
-print("Shape TF-IDF matrix:", tfidf_matrix.shape)
-```
-
-#### Cosine Similarity
-
-Cosine similarity menghitung tingkat kemiripan antar ramen berdasarkan representasi TF-IDF.
+Mengukur kemiripan antar setiap pasangan ramen menggunakan matriks TF-IDF yang dihasilkan.
 
 ```
 from sklearn.metrics.pairwise import cosine_similarity
@@ -135,7 +125,51 @@ cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
 print("Shape cosine similarity matrix:", cosine_sim.shape)
 ```
 
-#### indeks nama ramen
+#### 2. Evaluasi Content-Based Filtering
+```
+def recommend_ramen_content_based(title, cosine_sim=cosine_sim, df=df):
+    # Membuat indeks dari kolom 'Variety' untuk pencarian
+    indices = pd.Series(df.index, index=df['Variety']).drop_duplicates()
+
+    if title not in indices:
+        return f"Ramen dengan nama '{title}' tidak ditemukan dalam data."
+
+    # Ambil indeks. Jika indices[title] mengembalikan Series (karena duplikasi nama), ambil indeks pertama.
+    idx = indices[title]
+    if isinstance(idx, pd.Series):
+        idx = idx.iloc[0] # Ambil indeks pertama jika multiple matches
+
+    # Ambil baris similarity untuk ramen ini, pastikan 1D array
+    sim_scores_array = cosine_sim[idx]
+
+    # Kalau sim_scores_array bentuknya 2D, flatten dulu
+    if sim_scores_array.ndim > 1:
+        sim_scores_array = sim_scores_array.flatten()
+
+    # Buat list tuple (index, similarity_score)
+    sim_scores = list(enumerate(sim_scores_array))
+
+    # Sort berdasarkan similarity descending, ambil 10 teratas kecuali diri sendiri
+    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+
+    # Hapus diri sendiri (indeks idx)
+    sim_scores = [x for x in sim_scores if x[0] != idx]
+
+    # Ambil 10 teratas
+    sim_scores = sim_scores[:10]
+
+    ramen_indices = [i[0] for i in sim_scores]
+
+    recommended = df.iloc[ramen_indices][['Brand', 'Variety', 'Style', 'Country', 'Stars']]
+
+    return recommended.reset_index(drop=True)
+
+# Hitung Precision@10 untuk model content-based
+precision_at_10_cb = evaluate_content_based(recommend_ramen_content_based, df, k=10, relevant_threshold=4.0)
+print(f"Precision10 (Content-Based Filtering): {precision_at_10_cb:.4f}")
+```
+
+#### 3. Indeks nama ramen
 
 Indeks nama ramen itu peta penghubung dari nama ramen ke posisi baris di dataset yang memudahkan algoritma rekomendasi untuk langsung menemukan data ramen tertentu dengan cepat dan akurat.
 
@@ -210,7 +244,7 @@ Kekurangan
 Model ini kurang efektif untuk pengguna baru yang belum memiliki preferensi karena hanya mengandalkan fitur produk. Selain itu, rekomendasi yang diberikan cenderung terbatas pada produk yang sangat mirip sehingga kurang eksploratif dan variasi rekomendasi kurang luas.
 
 
-## 2. Collaborative Filtering
+## 2.  Model DevelopmentCollaborative Filtering
 
 Pada pendekatan Collaborative Filtering ini, kolom Country digunakan sebagai proxy pengguna untuk membentuk matriks user-item berdasarkan rating ramen. Kemudian, dihitung kemiripan antar pengguna menggunakan cosine similarity untuk menemukan pengguna dengan pola preferensi serupa. Rekomendasi diberikan dengan memilih ramen yang telah diberi rating tinggi oleh pengguna mirip namun belum pernah dicoba oleh pengguna target. Pendekatan ini memungkinkan sistem memberikan rekomendasi yang relevan berdasarkan pola kolektif preferensi komunitas meskipun informasi pengguna asli tidak tersedia secara eksplisit.Berikut tahapannya:
 
@@ -262,7 +296,83 @@ user_similarity = 1 - pairwise_distances(train_matrix_filled, metric='cosine')
 
 print("Shape matriks similarity user:", user_similarity.shape)
 ```
-#### 4. Fungsi Rekomendasi Collaborative Filtering
+#### 4. Evalusi Collaborative Filtering
+```
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+import numpy as np
+
+def predict_collaborative(user_id, item_variety, user_similarity, train_matrix):
+    
+    if user_id not in train_matrix.index or item_variety not in train_matrix.columns:
+        return np.nan # Tidak bisa prediksi jika user atau item tidak ada di training
+
+    user_idx = train_matrix.index.get_loc(user_id)
+    item_idx = train_matrix.columns.get_loc(item_variety)
+
+    # Ambil skor similarity user terhadap user lain
+    sim_scores = user_similarity[user_idx]
+
+    # Temukan user yang juga pernah merating item ini
+    users_who_rated_item = train_matrix[item_variety].dropna().index.tolist()
+
+    if not users_who_rated_item:
+        return np.nan # Tidak ada user yang pernah merating item ini
+
+    # Filter user similarity hanya untuk user yang merating item ini
+    users_to_consider = [u for u in users_who_rated_item if u in train_matrix.index]
+    if not users_to_consider:
+        return np.nan
+
+    # Dapatkan indeks dari user yang dipertimbangkan
+    users_to_consider_indices = [train_matrix.index.get_loc(u) for u in users_to_consider]
+
+    # Ambil skor similarity user_id terhadap user-user yang dipertimbangkan
+    relevant_sim_scores = sim_scores[users_to_consider_indices]
+
+    # Ambil rating dari user-user yang dipertimbangkan untuk item ini
+    relevant_ratings = train_matrix.loc[users_to_consider, item_variety]
+
+    # Hitung prediksi rating
+    # Weighted average of ratings by similar users
+    # Handle case where sum of absolute similarities is 0
+    if np.sum(np.abs(relevant_sim_scores)) == 0:
+        return np.nan # Tidak bisa menghitung prediksi jika tidak ada similarity
+
+    predicted_rating = np.sum(relevant_sim_scores * relevant_ratings) / np.sum(np.abs(relevant_sim_scores))
+
+    return predicted_rating
+
+
+# Siapkan data test untuk prediksi
+y_true = test_data['Stars'].values
+y_pred = []
+actual_y_true = [] # Simpan nilai true rating yang berhasil diprediksi
+
+# Lakukan prediksi untuk setiap baris di data test
+for index, row in test_data.iterrows():
+    user = row['Country']
+    item = row['Variety']
+    true_rating = row['Stars']
+
+    predicted = predict_collaborative(user, item, user_similarity, train_matrix)
+
+    if not np.isnan(predicted):
+        y_pred.append(predicted)
+        actual_y_true.append(true_rating)
+
+
+# Hitung RMSE dan MAE
+if actual_y_true:
+    rmse = np.sqrt(mean_squared_error(actual_y_true, y_pred))
+    mae = mean_absolute_error(actual_y_true, y_pred)
+
+    print(f"\nRMSE (Collaborative Filtering - Test Data): {rmse:.4f}")
+    print(f"MAE (Collaborative Filtering - Test Data): {mae:.4f}")
+else:
+    print("\nTidak ada prediksi yang berhasil dilakukan pada data test untuk Collaborative Filtering.")
+```
+
+#### 5. Fungsi Rekomendasi Collaborative Filtering
 ```
 def recommend_ramen_collaborative(user_id, user_similarity=user_similarity, train_matrix=train_matrix):
     if user_id not in train_matrix.index:
@@ -335,15 +445,15 @@ Karena menggunakan Country sebagai proxy user, model ini memiliki keterbatasan j
 Evaluasi sistem rekomendasi dilakukan dengan mengukur sejauh mana kedua model berhasil memenuhi tujuan proyek.
 
 - ***Goal 1***
-Evaluasi Content-Based Filtering difokuskan pada kemampuan model memberikan rekomendasi ramen serupa berdasarkan karakteristik produk. Keberhasilan model ini dapat dilihat dari relevansi dan konsistensi rekomendasi yang didasarkan pada kemiripan deskripsi ramen, serta kemunculan produk dengan rating tinggi yang menunjukkan kualitas rekomendasi konten.
+Evaluasi Content-Based Filtering difokuskan pada kemampuan model memberikan rekomendasi ramen serupa berdasarkan karakteristik produk. Keberhasilan model ini dapat dilihat dari relevansi dan konsistensi rekomendasi yang didasarkan pada kemiripan deskripsi ramen. Berdasarkan hasil evaluasi, model mencapai Precision@10 sebesar 0,4060, yang berarti sekitar 40,6% dari 10 rekomendasi teratas merupakan produk yang relevan dengan rating tinggi. Hal ini menunjukkan kualitas rekomendasi konten yang baik dan efektif dalam membantu pengguna menemukan ramen yang serupa sesuai preferensi.
 
-- ***Goal 2 ***
-Evaluasi Collaborative Filtering menilai efektivitas model dalam memanfaatkan data rating pengguna untuk menghasilkan rekomendasi yang relevan. Metrik seperti RMSE atau MAE digunakan untuk mengukur akurasi prediksi rating pada data testing, sementara keberhasilan memberikan rekomendasi top-N yang sesuai preferensi pengguna menjadi indikator utama relevansi dan personalisasi rekomendasi.
+- ***Goal 2***
+Evaluasi Collaborative Filtering menilai efektivitas model dalam memanfaatkan data rating pengguna untuk menghasilkan rekomendasi yang relevan dan personal. Metrik RMSE sebesar 0,8651 dan MAE sebesar 0,4560 pada data testing menunjukkan tingkat akurasi yang memadai dalam memprediksi rating pengguna terhadap ramen yang belum pernah mereka nilai sebelumnya. Keberhasilan model dalam memberikan rekomendasi top-N yang sesuai preferensi pengguna menandakan kemampuan sistem untuk meningkatkan personalisasi dan relevansi rekomendasi secara signifikan.
 
 
 ### Kesimpulan Evaluasi
 
-Sistem rekomendasi ramen yang dikembangkan menggunakan pendekatan Content-Based Filtering dan Collaborative Filtering berhasil memberikan rekomendasi yang relevan dan personal sesuai dengan karakteristik produk serta preferensi pengguna. Content-Based Filtering efektif dalam merekomendasikan produk serupa berdasarkan deskripsi ramen, sementara Collaborative Filtering mampu memanfaatkan pola rating pengguna untuk meningkatkan akurasi dan personalisasi rekomendasi. Kedua model saling melengkapi dalam menghadirkan solusi yang komprehensif, sehingga sistem ini dapat membantu pengguna menemukan ramen yang sesuai dengan selera dan preferensi mereka secara lebih optimal.
+Sistem rekomendasi ramen yang dikembangkan menggunakan pendekatan Content-Based Filtering dan Collaborative Filtering berhasil memberikan rekomendasi yang relevan dan personal sesuai dengan karakteristik produk serta preferensi pengguna. Berdasarkan evaluasi, model Content-Based Filtering mencapai Precision@10 sebesar 0,4060, yang menunjukkan bahwa sekitar 40,6% dari 10 rekomendasi teratas merupakan item relevan berdasarkan rating tinggi. Model Collaborative Filtering, di sisi lain, menunjukkan performa prediksi rating yang baik pada data uji dengan nilai RMSE sebesar 0,8651 dan MAE sebesar 0,4560, mengindikasikan tingkat akurasi yang memadai dalam memperkirakan rating pengguna terhadap ramen yang belum pernah mereka lihat sebelumnya. Content-Based Filtering efektif dalam merekomendasikan produk serupa berdasarkan deskripsi ramen, sedangkan Collaborative Filtering memanfaatkan pola rating pengguna untuk meningkatkan akurasi dan personalisasi rekomendasi. Kedua model tersebut saling melengkapi, sehingga sistem rekomendasi ini mampu membantu pengguna menemukan ramen yang sesuai dengan selera dan preferensi mereka secara lebih optimal.
 
 
 ---Ini adalah bagian akhir laporan---
